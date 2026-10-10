@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173d32">
+  <title>Sổ tay công thức · Nấu Ăn Ngon</title>
+  <link rel="stylesheet" href="/style.css?v=5">
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">✦</span> NẤU ĂN NGON <span class="brand-separator">/</span> LAB BẢO MẬT MẠNG</div>
+      <div class="hero-content">
+        <div>
+          <p class="eyebrow">ĐỀ TÀI 01 · PHÂN ĐOẠN VI MÔ</p>
+          <h1>Sổ tay công thức<span class="accent">.</span></h1>
+          <p class="subtitle">Lưu món ngon của bạn, đồng thời quan sát luồng dữ liệu đi qua ba tầng được phân tách bằng chính sách mạng.</p>
+        </div>
+        <div class="connection" id="connection" role="status" aria-live="polite"><span class="status-dot"></span><span id="connection-text">Đang kiểm tra kết nối</span></div>
+      </div>
+      <div class="flow" aria-label="Luồng ứng dụng: giao diện, API, cơ sở dữ liệu">
+        <span><b>01</b> Giao diện web</span><i aria-hidden="true">→</i><span><b>02</b> API</span><i aria-hidden="true">→</i><span><b>03</b> Cơ sở dữ liệu</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel form-panel" aria-labelledby="form-title">
+      <div class="section-kicker">QUẢN LÝ MÓN ĂN</div>
+      <h2 id="form-title">Thêm công thức</h2>
+      <p class="section-description">Lưu một công thức đầy đủ để thử thao tác tạo, xem, sửa và xóa qua cả ba tầng.</p>
+      <form id="recipe-form">
+        <label for="name">Tên món ăn <span class="required">*</span></label>
+        <input id="name" name="name" maxlength="100" minlength="2" required autocomplete="off" placeholder="Ví dụ: Bún riêu cua">
+        <p class="field-hint">Từ 2 đến 100 ký tự</p>
+        <label for="description">Mô tả</label>
+        <textarea id="description" name="description" maxlength="500" rows="4" placeholder="Giới thiệu ngắn về món ăn..."></textarea>
+        <p class="field-hint"><span id="description-count">0</span>/500 ký tự</p>
+        <div class="form-grid">
+          <div>
+            <label for="category">Loại món</label>
+            <select id="category" name="category">
+              <option>Món chính</option><option>Món canh</option><option>Món nước</option>
+              <option>Món ăn nhẹ</option><option>Tráng miệng</option><option selected>Khác</option>
+            </select>
+          </div>
+          <div>
+            <label for="cook-minutes">Thời gian nấu (phút)</label>
+            <input id="cook-minutes" name="cook_minutes" type="number" min="0" max="600" step="1" value="0" inputmode="numeric">
+          </div>
+        </div>
+        <label for="ingredients">Nguyên liệu</label>
+        <textarea id="ingredients" name="ingredients" maxlength="3000" rows="4" placeholder="Mỗi nguyên liệu một dòng..."></textarea>
+        <label for="instructions">Cách làm</label>
+        <textarea id="instructions" name="instructions" maxlength="3000" rows="5" placeholder="Viết các bước nấu theo thứ tự..."></textarea>
+        <p class="field-hint">Nguyên liệu và cách làm: tối đa 3000 ký tự mỗi mục</p>
+        <label for="image">Ảnh món ăn</label>
+        <input id="image" name="image" type="file" accept="image/jpeg,image/png,image/webp">
+        <p class="field-hint">JPEG, PNG hoặc WebP · tối đa 2 MB</p>
+        <div id="image-preview" class="image-preview" hidden>
+          <img id="preview-image" alt="Ảnh xem trước món ăn">
+          <button type="button" id="remove-image" class="secondary">Gỡ ảnh</button>
+        </div>
+        <div class="actions">
+          <button type="submit" id="save-button">Lưu công thức <span aria-hidden="true">→</span></button>
+          <button type="button" id="cancel-button" class="secondary" hidden>Hủy sửa</button>
+        </div>
+      </form>
+      <p id="message" role="status" aria-live="polite" hidden></p>
+    </section>
+
+    <section class="panel list-panel" aria-labelledby="list-title">
+      <div class="list-head">
+        <div><div class="section-kicker">BỘ SƯU TẬP</div><h2 id="list-title">Các món ăn</h2></div>
+        <div class="list-tools"><span id="count" class="count"></span><button type="button" id="refresh-button" class="text-button">Làm mới</button></div>
+      </div>
+      <label class="search-label" for="search">Tìm công thức</label>
+      <input id="search" type="search" placeholder="Tìm theo tên hoặc mô tả..." autocomplete="off">
+      <div class="filter-grid">
+        <div><label for="category-filter">Lọc loại món</label><select id="category-filter"><option value="">Tất cả loại món</option><option>Món chính</option><option>Món canh</option><option>Món nước</option><option>Món ăn nhẹ</option><option>Tráng miệng</option><option>Khác</option></select></div>
+        <div><label for="sort">Sắp xếp</label><select id="sort"><option value="newest">Mới thêm gần đây</option><option value="name">Tên A → Z</option><option value="time">Nấu nhanh trước</option></select></div>
+      </div>
+      <div id="recipes" class="recipes" aria-live="polite">Đang tải công thức...</div>
+    </section>
+  </main>
+
+  <footer>Lab phân đoạn vi mô · ACL / Docker bridge / Kubernetes NetworkPolicy</footer>
+  <script src="/app.js?v=6" defer></script>
+</body>
+</html>

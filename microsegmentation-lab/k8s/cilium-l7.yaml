@@ -1,0 +1,33 @@
+# Replaces calico-web-api.yaml in the Cilium deployment.
+# A broad L4 allow on API ingress would bypass these HTTP method/path checks.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: web-to-api-http
+  namespace: nau-lab
+spec:
+  endpointSelector:
+    matchLabels:
+      tier: api
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            tier: web
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+          rules:
+            http:
+              - method: GET
+                path: "/api/recipes$"
+              - method: POST
+                path: "/api/recipes$"
+              - method: GET
+                path: "/api/recipes/[0-9]+$"
+              - method: PUT
+                path: "/api/recipes/[0-9]+$"
+              - method: DELETE
+                path: "/api/recipes/[0-9]+$"
+              - method: GET
+                path: "/api/recipes/[0-9]+/image$"

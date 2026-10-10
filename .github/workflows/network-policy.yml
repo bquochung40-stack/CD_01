@@ -1,0 +1,129 @@
+name: Network policy checks
+
+on:
+  push:
+    paths:
+      - ".github/workflows/network-policy.yml"
+      - "microsegmentation-lab/**"
+  pull_request:
+    paths:
+      - ".github/workflows/network-policy.yml"
+      - "microsegmentation-lab/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  network-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: microsegmentation-lab
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Validate API and policy manifests
+        run: |
+          cd api
+          npm ci
+          npm test
+
+      - name: Install kind, kubectl and Helm
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSLo /tmp/kind https://kind.sigs.k8s.io/dl/v0.33.0/kind-linux-amd64
+          curl -fsSLo /tmp/kind.sha256sum https://kind.sigs.k8s.io/dl/v0.33.0/kind-linux-amd64.sha256sum
+          echo "$(awk '{print $1}' /tmp/kind.sha256sum)  /tmp/kind" | sha256sum -c -
+          sudo install -m 0755 /tmp/kind /usr/local/bin/kind
+
+          curl -fsSLo /tmp/kubectl https://dl.k8s.io/release/v1.35.0/bin/linux/amd64/kubectl
+          curl -fsSLo /tmp/kubectl.sha256 https://dl.k8s.io/release/v1.35.0/bin/linux/amd64/kubectl.sha256
+          echo "$(cat /tmp/kubectl.sha256)  /tmp/kubectl" | sha256sum -c -
+          sudo install -m 0755 /tmp/kubectl /usr/local/bin/kubectl
+
+          curl -fsSLo /tmp/helm.tar.gz https://get.helm.sh/helm-v3.22.0-linux-amd64.tar.gz
+          curl -fsSLo /tmp/helm.tar.gz.sha256sum https://get.helm.sh/helm-v3.22.0-linux-amd64.tar.gz.sha256sum
+          echo "$(awk '{print $1}' /tmp/helm.tar.gz.sha256sum)  /tmp/helm.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/helm.tar.gz -C /tmp
+          sudo install -m 0755 /tmp/linux-amd64/helm /usr/local/bin/helm
+
+      - name: Build Docker images and create cluster
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -t nau-segmentation-api:1.0.0 ./api
+          docker build -t nau-segmentation-web:1.0.0 ./web
+          docker build -t nau-segmentation-probe:1.0.0 ./probe
+          kind create cluster --config kind/cilium-config.yaml
+          kind load docker-image nau-segmentation-api:1.0.0 --name nau-l7
+          kind load docker-image nau-segmentation-web:1.0.0 --name nau-l7
+          kind load docker-image nau-segmentation-probe:1.0.0 --name nau-l7
+
+      - name: Install Cilium L7 CNI
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if docker exec nau-l7-control-plane ctr --namespace=k8s.io images pull \
+              --platform linux/amd64 quay.io/cilium/cilium:v1.20.2 >/tmp/cilium-pull.log 2>&1; then
+              echo "Cilium image ready in kind node"
+              break
+            fi
+            tail -n 12 /tmp/cilium-pull.log
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 10
+          done
+          helm repo add cilium https://helm.cilium.io/
+          helm repo update cilium
+          helm install cilium cilium/cilium --version 1.20.2 \
+            --namespace kube-system --set ipam.mode=kubernetes \
+            --set operator.replicas=1 --set l7Proxy=true \
+            --set image.pullPolicy=IfNotPresent --wait --timeout 10m
+          kubectl -n kube-system rollout status daemonset/cilium --timeout=600s
+          kubectl wait --for=condition=Ready nodes --all --timeout=600s
+
+      - name: Deploy restrictive policies and website
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl apply -f k8s/namespaces.yaml
+          kubectl apply -f k8s/policies.yaml
+          kubectl apply -f k8s/cilium-l7.yaml
+          kubectl -n nau-lab create secret generic db-credentials \
+            --from-literal=password="ci-$(openssl rand -hex 18)"
+          kubectl -n nau-lab create configmap db-init --from-file=init.sql=db/init.sql
+          kubectl apply -f k8s/workloads.yaml
+          kubectl -n nau-lab rollout status deployment/recipe-db --timeout=300s
+          kubectl -n nau-lab rollout status deployment/recipe-api --timeout=300s
+          kubectl -n nau-lab rollout status deployment/recipe-web --timeout=300s
+
+      - name: Test L3/L4 segmentation
+        run: node scripts/test-network.js cilium
+
+      - name: Test HTTP method and path rules
+        run: node scripts/test-l7.js
+
+      - name: Collect diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          mkdir -p evidence
+          kubectl get pods -A -o wide > evidence/ci-pods.txt 2>&1 || true
+          kubectl -n nau-lab describe ciliumnetworkpolicy web-to-api-http > evidence/ci-cilium-policy.txt 2>&1 || true
+          kubectl -n nau-lab get networkpolicy -o yaml > evidence/ci-network-policies.yaml 2>&1 || true
+          kubectl -n kube-system logs daemonset/cilium --all-containers=true --tail=150 > evidence/ci-cilium-logs.txt 2>&1 || true
+
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-policy-evidence
+          path: microsegmentation-lab/evidence/
+          if-no-files-found: warn
+          retention-days: 14

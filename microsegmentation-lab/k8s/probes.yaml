@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: outside-allowed
+  namespace: nau-lab-test
+  labels:
+    role: probe
+spec:
+  containers:
+    - name: netshoot
+      image: nau-segmentation-probe:1.0.0
+      imagePullPolicy: IfNotPresent
+      command: ["/bin/sh", "-c", "sleep 36000"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: outside-denied
+  namespace: nau-lab-test
+  labels:
+    role: outsider
+spec:
+  containers:
+    - name: netshoot
+      image: nau-segmentation-probe:1.0.0
+      imagePullPolicy: IfNotPresent
+      command: ["/bin/sh", "-c", "sleep 36000"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-probe
+  namespace: nau-lab
+  labels:
+    tier: web
+    role: diagnostic
+spec:
+  containers:
+    - name: netshoot
+      image: nau-segmentation-probe:1.0.0
+      imagePullPolicy: IfNotPresent
+      command: ["/bin/sh", "-c", "sleep 36000"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: api-probe
+  namespace: nau-lab
+  labels:
+    tier: api
+    role: diagnostic
+spec:
+  containers:
+    - name: netshoot
+      image: nau-segmentation-probe:1.0.0
+      imagePullPolicy: IfNotPresent
+      command: ["/bin/sh", "-c", "sleep 36000"]

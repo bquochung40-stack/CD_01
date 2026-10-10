@@ -1,0 +1,20 @@
+# Calico baseline: allow web tier to reach API on TCP/3000.
+# Cilium deployment uses cilium-l7.yaml instead; applying both would bypass L7 checks.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-web-to-api
+  namespace: nau-lab
+spec:
+  podSelector:
+    matchLabels:
+      tier: api
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              tier: web
+      ports:
+        - protocol: TCP
+          port: 3000
