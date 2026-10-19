@@ -86,7 +86,7 @@ docker compose -f router-lab/compose.yaml down
 
 ```powershell
 cd "C:\Workspace C\NauComNgon_web-main\microsegmentation-lab"
-.\scripts\deploy-kind.ps1
+.\scripts\deploy-kind.ps1 -ReuseExisting
 kubectl -n nau-lab get pods,svc,networkpolicy
 node scripts/test-network.js k8s
 ```
